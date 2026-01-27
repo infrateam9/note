@@ -20,6 +20,7 @@ vendor/
 go.work
 
 # Build artifacts
+note
 note-app
 bootstrap
 function.zip

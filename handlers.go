@@ -72,16 +72,35 @@ func HandlePost(storage Storage) http.HandlerFunc {
 		// Set response content type
 		w.Header().Set("Content-Type", "application/json")
 
-		// Parse JSON request
+		// Parse request - handle both JSON and form-encoded data
 		var req NoteRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Printf("[ERROR] Failed to parse JSON from %s: %v", r.RemoteAddr, err)
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(NoteResponse{
-				Success: false,
-				Error:   "Invalid request format",
-			})
-			return
+		contentType := r.Header.Get("Content-Type")
+
+		if strings.Contains(contentType, "application/json") {
+			// Parse JSON request
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				log.Printf("[ERROR] Failed to parse JSON from %s: %v", r.RemoteAddr, err)
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(NoteResponse{
+					Success: false,
+					Error:   "Invalid JSON format",
+				})
+				return
+			}
+		} else {
+			// Parse form-encoded request (application/x-www-form-urlencoded)
+			if err := r.ParseForm(); err != nil {
+				log.Printf("[ERROR] Failed to parse form data from %s: %v", r.RemoteAddr, err)
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(NoteResponse{
+					Success: false,
+					Error:   "Invalid form format",
+				})
+				return
+			}
+			req.Content = r.FormValue("text")
+			req.NoteID = r.FormValue("noteId")
+			log.Printf("[INFO] Parsed form data: noteId=%s, content_length=%d", req.NoteID, len(req.Content))
 		}
 
 		// Auto-generate ID if not provided
@@ -134,8 +153,11 @@ func HandlePost(storage Storage) http.HandlerFunc {
 		}
 
 		// Return success response
-		// Check if this is a curl request (plain text response)
-		if isCurlRequest(r) {
+		// For form-encoded requests, return simple text response
+		if strings.Contains(contentType, "application/x-www-form-urlencoded") {
+			w.Header().Set("Content-Type", "text/plain")
+			fmt.Fprintf(w, "OK: %s\n", noteID)
+		} else if isCurlRequest(r) {
 			w.Header().Set("Content-Type", "text/plain")
 			fmt.Fprintf(w, "OK: %s\n", noteID)
 		} else {
