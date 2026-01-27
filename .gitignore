@@ -27,8 +27,8 @@ function.zip
 # Local development
 .env
 .env.local
-notes/
-/notes/
+note/
+/note/
 
 # IDE
 .vscode/
