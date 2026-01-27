@@ -26,7 +26,7 @@ type NoteResponse struct {
 func HandleGet(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		noteID := r.URL.Query().Get("note")
-		
+
 		if noteID != "" {
 			log.Printf("[GET] Retrieving note: %s from %s", noteID, r.RemoteAddr)
 		} else {
@@ -56,22 +56,22 @@ func HandleGet(storage Storage) http.HandlerFunc {
 func HandlePost(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[POST] Request from %s", r.RemoteAddr)
-		
+
 		// Set CORS headers to allow requests from any origin
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		
+
 		// Handle preflight requests
 		if r.Method == http.MethodOptions {
 			log.Printf("[POST] Preflight OPTIONS request from %s", r.RemoteAddr)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		
+
 		// Set response content type
 		w.Header().Set("Content-Type", "application/json")
-		
+
 		// Parse JSON request
 		var req NoteRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
