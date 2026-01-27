@@ -26,6 +26,12 @@ type NoteResponse struct {
 func HandleGet(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		noteID := r.URL.Query().Get("note")
+		
+		if noteID != "" {
+			log.Printf("[GET] Retrieving note: %s from %s", noteID, r.RemoteAddr)
+		} else {
+			log.Printf("[GET] Creating new note from %s", r.RemoteAddr)
+		}
 
 		// Read note content from storage
 		content := ""
@@ -33,10 +39,11 @@ func HandleGet(storage Storage) http.HandlerFunc {
 			var err error
 			content, err = storage.Read(r.Context(), noteID)
 			if err != nil {
-				log.Printf("ERROR: Failed to read note %s: %v", noteID, err)
+				log.Printf("[ERROR] Failed to read note %s: %v", noteID, err)
 				http.Error(w, "Internal server error", http.StatusInternalServerError)
 				return
 			}
+			log.Printf("[SUCCESS] Note %s retrieved successfully", noteID)
 		}
 
 		// Render HTML with note content
@@ -48,6 +55,8 @@ func HandleGet(storage Storage) http.HandlerFunc {
 // HandlePost handles POST requests to save a note
 func HandlePost(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("[POST] Request from %s", r.RemoteAddr)
+		
 		// Set CORS headers to allow requests from any origin
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -55,6 +64,7 @@ func HandlePost(storage Storage) http.HandlerFunc {
 		
 		// Handle preflight requests
 		if r.Method == http.MethodOptions {
+			log.Printf("[POST] Preflight OPTIONS request from %s", r.RemoteAddr)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -65,6 +75,7 @@ func HandlePost(storage Storage) http.HandlerFunc {
 		// Parse JSON request
 		var req NoteRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Printf("[ERROR] Failed to parse JSON from %s: %v", r.RemoteAddr, err)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(NoteResponse{
 				Success: false,
@@ -77,10 +88,14 @@ func HandlePost(storage Storage) http.HandlerFunc {
 		noteID := strings.TrimSpace(req.NoteID)
 		if noteID == "" {
 			noteID = GenerateNoteID()
+			log.Printf("[INFO] Generated new note ID: %s", noteID)
+		} else {
+			log.Printf("[INFO] Using provided note ID: %s", noteID)
 		}
 
 		// Validate note ID
 		if !ValidateNoteID(noteID) {
+			log.Printf("[ERROR] Invalid note ID format: %s", noteID)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(NoteResponse{
 				Success: false,
@@ -91,8 +106,9 @@ func HandlePost(storage Storage) http.HandlerFunc {
 
 		// If content is empty, delete the note
 		if strings.TrimSpace(req.Content) == "" {
+			log.Printf("[DELETE] Attempting to delete note: %s", noteID)
 			if err := storage.Delete(r.Context(), noteID); err != nil {
-				log.Printf("ERROR: Failed to delete note %s: %v", noteID, err)
+				log.Printf("[ERROR] Failed to delete note %s: %v (Path may not exist)", noteID, err)
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(NoteResponse{
 					Success: false,
@@ -100,10 +116,13 @@ func HandlePost(storage Storage) http.HandlerFunc {
 				})
 				return
 			}
+			log.Printf("[SUCCESS] Note %s deleted successfully", noteID)
 		} else {
 			// Save the note
+			contentSize := len(req.Content)
+			log.Printf("[SAVE] Attempting to save note: %s (size: %d bytes)", noteID, contentSize)
 			if err := storage.Write(r.Context(), noteID, req.Content); err != nil {
-				log.Printf("ERROR: Failed to write note %s: %v", noteID, err)
+				log.Printf("[ERROR] Failed to write note %s: %v (Check directory permissions and disk space)", noteID, err)
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(NoteResponse{
 					Success: false,
@@ -111,6 +130,7 @@ func HandlePost(storage Storage) http.HandlerFunc {
 				})
 				return
 			}
+			log.Printf("[SUCCESS] Note %s saved successfully (size: %d bytes)", noteID, contentSize)
 		}
 
 		// Return success response
