@@ -42,7 +42,7 @@ func (ss *S3Storage) Read(ctx context.Context, noteID string) (string, error) {
 	if err != nil {
 		// Check if it's a NoSuchKey error
 		if strings.Contains(err.Error(), "NoSuchKey") {
-			return "", nil // Return empty string for missing notes
+			return "", nil // Return empty string for missing note
 		}
 		return "", fmt.Errorf("failed to read note from S3: %w", err)
 	}

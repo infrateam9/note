@@ -58,7 +58,7 @@ func initLambda() {
 
 	s3Prefix := os.Getenv("S3_PREFIX")
 	if s3Prefix == "" {
-		s3Prefix = "notes"
+		s3Prefix = "note"
 	}
 
 	// Create S3 storage
@@ -81,19 +81,19 @@ func initHTTPServer() {
 		port = "8080"
 	}
 
-	notesDir := os.Getenv("NOTES_DIR")
-	if notesDir == "" {
-		notesDir = "/notes"
+	noteDir := os.Getenv("NOTE_DIR")
+	if noteDir == "" {
+		noteDir = "/note"
 	}
 
 	// Create local storage
 	var err error
-	globalStorage, err = NewLocalStorage(notesDir)
+	globalStorage, err = NewLocalStorage(noteDir)
 	if err != nil {
 		log.Fatalf("Failed to initialize local storage: %v", err)
 	}
 
-	log.Printf("Local storage configured: directory=%s", notesDir)
+	log.Printf("Local storage configured: directory=%s", noteDir)
 
 	// Setup HTTP routes
 	mux := http.NewServeMux()

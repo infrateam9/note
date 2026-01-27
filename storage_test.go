@@ -112,21 +112,21 @@ func TestLocalStorageDelete(t *testing.T) {
 
 func TestLocalStorageCreateDir(t *testing.T) {
 	tmpDir := t.TempDir()
-	notesDir := filepath.Join(tmpDir, "notes")
+	noteDir := filepath.Join(tmpDir, "note")
 
 	// Verify directory doesn't exist
-	if _, err := os.Stat(notesDir); err == nil {
+	if _, err := os.Stat(noteDir); err == nil {
 		t.Fatalf("Directory should not exist yet")
 	}
 
 	// Create storage (should create directory)
-	storage, err := NewLocalStorage(notesDir)
+	storage, err := NewLocalStorage(noteDir)
 	if err != nil {
 		t.Fatalf("Failed to create local storage: %v", err)
 	}
 
 	// Verify directory was created
-	if _, err := os.Stat(notesDir); err != nil {
+	if _, err := os.Stat(noteDir); err != nil {
 		t.Errorf("Directory was not created: %v", err)
 	}
 

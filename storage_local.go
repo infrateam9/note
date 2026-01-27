@@ -26,8 +26,8 @@ type LocalStorage struct {
 func NewLocalStorage(dir string) (*LocalStorage, error) {
 	// Create directory if it doesn't exist
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		log.Printf("[ERROR] Failed to create notes directory %s: %v", dir, err)
-		return nil, fmt.Errorf("failed to create notes directory: %w", err)
+		log.Printf("[ERROR] Failed to create note directory %s: %v", dir, err)
+		return nil, fmt.Errorf("failed to create note directory: %w", err)
 	}
 	log.Printf("[INFO] LocalStorage initialized at: %s", dir)
 	return &LocalStorage{dir: dir}, nil
@@ -40,7 +40,7 @@ func (ls *LocalStorage) Read(ctx context.Context, noteID string) (string, error)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			log.Printf("[INFO] Note %s does not exist at %s", noteID, filePath)
-			return "", nil // Return empty string for missing notes
+			return "", nil // Return empty string for missing note
 		}
 		log.Printf("[ERROR] Failed to read note %s from %s: %v", noteID, filePath, err)
 		return "", fmt.Errorf("failed to read note: %w", err)

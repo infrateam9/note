@@ -1,13 +1,13 @@
 # Note App
 
-A lightweight, serverless note-taking application written in Go. Create, edit, and share notes with auto-save functionality. Deploy to AWS Lambda with S3 storage or run locally with disk-based storage.
+A lightweight, serverless note-taking application written in Go. Create, edit, and share note with auto-save functionality. Deploy to AWS Lambda with S3 storage or run locally with disk-based storage.
 
 ## Features
 
-- 📝 **Simple Note Editor**: Lightweight web interface for creating and editing notes
+- 📝 **Simple Note Editor**: Lightweight web interface for creating and editing note
 - 💾 **Auto-Save**: Automatically saves note content every second
-- 🔗 **Shareable URLs**: Notes are accessible via direct links with unique IDs
-- 🖨️ **Print Support**: Print-friendly interface for saving notes
+- 🔗 **Shareable URLs**: Note is accessible via direct links with unique IDs
+- 🖨️ **Print Support**: Print-friendly interface for saving note
 - ⌨️ **TAB Support**: TAB key works for indentation instead of moving focus
 - 🚀 **Multi-Deployment**: HTTP server, Docker container, or AWS Lambda
 - 💾 **Flexible Storage**: Local disk or AWS S3 backend
@@ -30,7 +30,7 @@ Open http://localhost:8080 in your browser.
 **With custom settings:**
 ```bash
 export PORT=3000
-export NOTES_DIR=./my-notes
+export NOTE_DIR=./my-note
 go run main.go
 ```
 
@@ -43,7 +43,7 @@ docker build -t note-app .
 
 **Run:**
 ```bash
-docker run -p 8080:8080 -v ./notes:/notes note-app
+docker run -p 8080:8080 -v ./note:/note note-app
 ```
 
 Then open http://localhost:8080
@@ -52,7 +52,7 @@ Then open http://localhost:8080
 
 **Prerequisites:**
 - AWS account with IAM permissions
-- S3 bucket for storing notes
+- S3 bucket for storing note
 
 **Deploy with SAM (recommended):**
 ```bash
@@ -70,7 +70,7 @@ sam deploy --guided
 2. Create Lambda function via AWS Console
 3. Set environment variables:
    - `S3_BUCKET`: Your S3 bucket name
-   - `S3_PREFIX`: "notes" (default)
+   - `S3_PREFIX`: "note" (default)
    - `AWS_REGION`: "us-east-1" (default)
 
 4. Upload ZIP file to Lambda
@@ -81,12 +81,12 @@ sam deploy --guided
 
 #### Local/Docker Mode (HTTP Server)
 - `PORT`: HTTP server port (default: `8080`)
-- `NOTES_DIR`: Directory to store notes (default: `/notes`)
-- `URL`: **Optional** - Public URL for sharing notes (e.g., `https://notes.example.com`). If not set, the domain is auto-detected from the request. Useful for reverse proxies where auto-detection may not work correctly.
+- `NOTE_DIR`: Directory to store note (default: `/note`)
+- `URL`: **Optional** - Public URL for sharing note (e.g., `https://note.example.com`). If not set, the domain is auto-detected from the request. Useful for reverse proxies where auto-detection may not work correctly.
 
 #### Lambda Mode
-- `S3_BUCKET`: **Required** - S3 bucket name for storing notes
-- `S3_PREFIX`: S3 object key prefix (default: `notes`)
+- `S3_BUCKET`: **Required** - S3 bucket name for storing note
+- `S3_PREFIX`: S3 object key prefix (default: `note`)
 - `AWS_REGION`: AWS region (default: `us-east-1`)
 
 Runtime detection is automatic:
@@ -280,12 +280,12 @@ For GitHub Actions workflows to work, configure these secrets in your repository
 
 ## Troubleshooting
 
-### Notes not saving locally
+### Note not saving locally
 
-Ensure the `NOTES_DIR` directory exists and is writable:
+Ensure the `NOTE_DIR` directory exists and is writable:
 ```bash
-mkdir -p /notes
-chmod 755 /notes
+mkdir -p /note
+chmod 755 /note
 ```
 
 ### Lambda deployment fails

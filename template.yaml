@@ -21,16 +21,16 @@ Parameters:
   
   S3BucketName:
     Type: String
-    Description: S3 bucket name for storing notes
+    Description: S3 bucket name for storing note
     Default: note-app-storage
   
   S3Prefix:
     Type: String
-    Default: notes
-    Description: S3 object key prefix for notes
+    Default: note
+    Description: S3 object key prefix for note
 
 Resources:
-  # S3 Bucket for storing notes
+  # S3 Bucket for storing note
   NoteStorageBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -161,7 +161,7 @@ Outputs:
     Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
   
   S3BucketName:
-    Description: S3 bucket name for notes
+    Description: S3 bucket name for note
     Value: !Ref NoteStorageBucket
   
   LambdaFunctionArn:

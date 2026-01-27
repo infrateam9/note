@@ -30,15 +30,15 @@ RUN apk add --no-cache ca-certificates
 # Copy binary from builder
 COPY --from=builder /build/note-app .
 
-# Create notes directory
-RUN mkdir -p /notes
+# Create note directory
+RUN mkdir -p /note
 
 # Expose port
 EXPOSE 8080
 
 # Set environment variables
 ENV PORT=8080
-ENV NOTES_DIR=/notes
+ENV NOTE_DIR=/note
 
 # Health check (uses PORT env var, defaults to 8080)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
