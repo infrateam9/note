@@ -48,10 +48,23 @@ func HandleGet(storage Storage) http.HandlerFunc {
 // HandlePost handles POST requests to save a note
 func HandlePost(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers to allow requests from any origin
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		
+		// Handle preflight requests
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		
+		// Set response content type
+		w.Header().Set("Content-Type", "application/json")
+		
 		// Parse JSON request
 		var req NoteRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(NoteResponse{
 				Success: false,
@@ -68,7 +81,6 @@ func HandlePost(storage Storage) http.HandlerFunc {
 
 		// Validate note ID
 		if !ValidateNoteID(noteID) {
-			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(NoteResponse{
 				Success: false,
@@ -81,7 +93,6 @@ func HandlePost(storage Storage) http.HandlerFunc {
 		if strings.TrimSpace(req.Content) == "" {
 			if err := storage.Delete(r.Context(), noteID); err != nil {
 				log.Printf("ERROR: Failed to delete note %s: %v", noteID, err)
-				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(NoteResponse{
 					Success: false,
@@ -93,7 +104,6 @@ func HandlePost(storage Storage) http.HandlerFunc {
 			// Save the note
 			if err := storage.Write(r.Context(), noteID, req.Content); err != nil {
 				log.Printf("ERROR: Failed to write note %s: %v", noteID, err)
-				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(NoteResponse{
 					Success: false,
@@ -109,7 +119,6 @@ func HandlePost(storage Storage) http.HandlerFunc {
 			w.Header().Set("Content-Type", "text/plain")
 			fmt.Fprintf(w, "OK: %s\n", noteID)
 		} else {
-			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(NoteResponse{
 				Success: true,
 				NoteID:  noteID,
