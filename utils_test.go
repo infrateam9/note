@@ -76,7 +76,7 @@ func TestEscapeHTML(t *testing.T) {
 		{"<div>test</div>", "&lt;div&gt;test&lt;/div&gt;"},
 		{"normal text", "normal text"},
 		{"test & test", "test &amp; test"},
-		{"\"quoted\"", "&quot;quoted&quot;"},
+		{"\"quoted\"", "&#34;quoted&#34;"},
 		{"'quoted'", "&#39;quoted&#39;"},
 		{"", ""},
 	}
