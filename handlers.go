@@ -283,7 +283,12 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
                         content: textarea.value
                     })
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("HTTP " + response.status + ": " + response.statusText);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
                         lastSaved = textarea.value;
@@ -306,8 +311,8 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
                     }
                 })
                 .catch(err => {
-                    statusEl.textContent = "Error: Network error";
                     console.error("Save error:", err);
+                    statusEl.textContent = "Error: " + (err.message || "Network error");
                 });
             }
         }
