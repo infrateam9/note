@@ -1,0 +1,83 @@
+name: Deploy to AWS Lambda
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Download dependencies
+      run: go mod download
+    
+    - name: Run tests
+      run: go test -v ./...
+    
+    - name: Build binary for Lambda
+      run: |
+        GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build \
+          -ldflags="-X main.Version=$(git describe --tags --always) -X main.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%SZ') -X main.CommitHash=$(git rev-parse --short HEAD)" \
+          -o bootstrap \
+          .
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+      continue-on-error: true
+    
+    - name: Deploy to AWS Lambda
+      run: |
+        # Create deployment package
+        zip function.zip bootstrap
+        
+        # Update Lambda function code
+        aws lambda update-function-code \
+          --function-name note-app-${{ github.event.inputs.environment || 'staging' }} \
+          --zip-file fileb://function.zip \
+          --region ${{ secrets.AWS_REGION || 'us-east-1' }}
+      continue-on-error: true
+    
+    - name: Create deployment artifact
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        mkdir -p releases
+        cp bootstrap releases/note-app-${{ github.ref_name }}-lambda
+        zip -r releases/note-app-${{ github.ref_name }}-lambda.zip bootstrap
+    
+    - name: Upload release artifacts
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: releases/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
