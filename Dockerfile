@@ -12,8 +12,9 @@ RUN go mod download
 
 COPY *.go ./
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build \
+# Build the application for the target architecture
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     -ldflags="-X main.Version=docker -X main.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%SZ') -X main.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')" \
     -o note-app \
     .
