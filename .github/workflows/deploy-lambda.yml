@@ -1,4 +1,4 @@
-name: Deploy to AWS Lambda
+name: Deploy to AWS Lambda (Optional)
 
 on:
   push:
@@ -49,13 +49,14 @@ jobs:
           .
     
     - name: Configure AWS credentials
+      if: env.AWS_ROLE_TO_ASSUME != ''
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
-      continue-on-error: true
     
     - name: Deploy to AWS Lambda
+      if: env.AWS_ROLE_TO_ASSUME != ''
       run: |
         # Create deployment package
         zip function.zip bootstrap
@@ -65,7 +66,6 @@ jobs:
           --function-name note-app-${{ github.event.inputs.environment || 'staging' }} \
           --zip-file fileb://function.zip \
           --region ${{ secrets.AWS_REGION || 'us-east-1' }}
-      continue-on-error: true
     
     - name: Create deployment artifact
       if: startsWith(github.ref, 'refs/tags/')
@@ -78,6 +78,7 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
+        files: releases/*
         files: releases/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
