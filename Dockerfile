@@ -32,6 +32,9 @@ COPY --from=builder /build/note-app .
 
 # Create note directory
 RUN mkdir -p /note
+RUN chown 8080:8080 /note
+
+USER 8080:8080
 
 # Expose port
 EXPOSE 8080
