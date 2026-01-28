@@ -16,8 +16,7 @@ COPY *.go ./
 ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     -ldflags="-X main.Version=docker -X main.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%SZ') -X main.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')" \
-    -o note-app \
-    .
+    -o note-app .
 
 # Runtime stage
 FROM alpine:latest
@@ -48,4 +47,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://localhost:${PORT:-8080}/ || exit 1
 
 # Run the application
-CMD ["./note-app"]
+CMD ["/app/note-app"]

@@ -152,6 +152,10 @@ func handleAPIGatewayV2(ctx context.Context, event events.APIGatewayV2HTTPReques
 		// #region agent log
 		log.Printf("DEBUG: mux(v2) method=%s path=%s rawQuery=%s", r.Method, r.URL.Path, r.URL.RawQuery)
 		// #endregion
+		if r.URL.Path == "/favicon.ico" {
+			serveFavicon(w, r)
+			return
+		}
 		if r.Method == http.MethodGet {
 			HandleGet(globalStorage)(w, r)
 			return
@@ -200,6 +204,10 @@ func handleAPIGatewayV1(ctx context.Context, event events.APIGatewayProxyRequest
 		// #region agent log
 		log.Printf("DEBUG: mux(v1) method=%s path=%s rawQuery=%s", r.Method, r.URL.Path, r.URL.RawQuery)
 		// #endregion
+		if r.URL.Path == "/favicon.ico" {
+			serveFavicon(w, r)
+			return
+		}
 		if r.Method == http.MethodGet {
 			HandleGet(globalStorage)(w, r)
 			return

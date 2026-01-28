@@ -97,6 +97,7 @@ func initHTTPServer() {
 
 	// Setup HTTP routes
 	mux := http.NewServeMux()
+	mux.HandleFunc("/favicon.ico", serveFavicon)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			HandleGet(globalStorage)(w, r)
