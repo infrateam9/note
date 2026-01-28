@@ -26,11 +26,12 @@ type NoteResponse struct {
 func HandleGet(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		noteID := r.URL.Query().Get("note")
+		clientIP := ClientIP(r)
 
 		if noteID != "" {
-			log.Printf("[GET] Retrieving note: %s from %s", noteID, r.RemoteAddr)
+			log.Printf("[GET] Retrieving note: %s from %s", noteID, clientIP)
 		} else {
-			log.Printf("[GET] Creating new note from %s", r.RemoteAddr)
+			log.Printf("[GET] Creating new note from %s", clientIP)
 		}
 
 		// Read note content from storage
@@ -55,7 +56,8 @@ func HandleGet(storage Storage) http.HandlerFunc {
 // HandlePost handles POST requests to save a note
 func HandlePost(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[POST] Request from %s", r.RemoteAddr)
+		clientIP := ClientIP(r)
+		log.Printf("[POST] Request from %s", clientIP)
 
 		// Set CORS headers to allow requests from any origin
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -64,7 +66,7 @@ func HandlePost(storage Storage) http.HandlerFunc {
 
 		// Handle preflight requests
 		if r.Method == http.MethodOptions {
-			log.Printf("[POST] Preflight OPTIONS request from %s", r.RemoteAddr)
+			log.Printf("[POST] Preflight OPTIONS request from %s", clientIP)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -79,7 +81,7 @@ func HandlePost(storage Storage) http.HandlerFunc {
 		if strings.Contains(contentType, "application/json") {
 			// Parse JSON request
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				log.Printf("[ERROR] Failed to parse JSON from %s: %v", r.RemoteAddr, err)
+				log.Printf("[ERROR] Failed to parse JSON from %s: %v", clientIP, err)
 				w.WriteHeader(http.StatusBadRequest)
 				json.NewEncoder(w).Encode(NoteResponse{
 					Success: false,
@@ -90,7 +92,7 @@ func HandlePost(storage Storage) http.HandlerFunc {
 		} else {
 			// Parse form-encoded request (application/x-www-form-urlencoded)
 			if err := r.ParseForm(); err != nil {
-				log.Printf("[ERROR] Failed to parse form data from %s: %v", r.RemoteAddr, err)
+				log.Printf("[ERROR] Failed to parse form data from %s: %v", clientIP, err)
 				w.WriteHeader(http.StatusBadRequest)
 				json.NewEncoder(w).Encode(NoteResponse{
 					Success: false,
