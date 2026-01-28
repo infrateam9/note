@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ func LambdaHandler(ctx context.Context, request interface{}) (interface{}, error
 	logDebug("lambda.go:16", "LambdaHandler entry", map[string]interface{}{
 		"requestType": fmt.Sprintf("%T", request),
 	}, "A")
+	log.Printf("DEBUG: LambdaHandler goVersion=%s", runtime.Version())
 	// #endregion
 
 	// Try to detect API Gateway format by marshaling to JSON
@@ -146,8 +148,20 @@ func handleAPIGatewayV2(ctx context.Context, event events.APIGatewayV2HTTPReques
 	}
 
 	router := http.NewServeMux()
-	router.HandleFunc("GET /", HandleGet(globalStorage))
-	router.HandleFunc("POST /", HandlePost(globalStorage))
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// #region agent log
+		log.Printf("DEBUG: mux(v2) method=%s path=%s rawQuery=%s", r.Method, r.URL.Path, r.URL.RawQuery)
+		// #endregion
+		if r.Method == http.MethodGet {
+			HandleGet(globalStorage)(w, r)
+			return
+		}
+		if r.Method == http.MethodPost || r.Method == http.MethodOptions {
+			HandlePost(globalStorage)(w, r)
+			return
+		}
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	})
 	router.ServeHTTP(rec, req)
 
 	// Return v2 format response
@@ -182,8 +196,20 @@ func handleAPIGatewayV1(ctx context.Context, event events.APIGatewayProxyRequest
 	}
 
 	router := http.NewServeMux()
-	router.HandleFunc("GET /", HandleGet(globalStorage))
-	router.HandleFunc("POST /", HandlePost(globalStorage))
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// #region agent log
+		log.Printf("DEBUG: mux(v1) method=%s path=%s rawQuery=%s", r.Method, r.URL.Path, r.URL.RawQuery)
+		// #endregion
+		if r.Method == http.MethodGet {
+			HandleGet(globalStorage)(w, r)
+			return
+		}
+		if r.Method == http.MethodPost || r.Method == http.MethodOptions {
+			HandlePost(globalStorage)(w, r)
+			return
+		}
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	})
 	router.ServeHTTP(rec, req)
 
 	// Return v1 format response
