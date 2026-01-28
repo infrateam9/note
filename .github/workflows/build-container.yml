@@ -2,7 +2,7 @@ name: Build Docker Container (Optional)
 
 on:
   push:
-    branches: [ main ]
+    #branches: [ main ]
     tags: [ 'v*' ]
   workflow_dispatch:
 

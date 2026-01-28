@@ -2,7 +2,7 @@ name: Deploy to AWS Lambda (Optional)
 
 on:
   push:
-    branches: [ main ]
+#    branches: [ main ]
     tags: [ 'v*' ]
   workflow_dispatch:
     inputs:
@@ -53,20 +53,24 @@ jobs:
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-        aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+        aws-region: ${{ secrets.AWS_REGION }}
+        audience: ${{ secrets.AWS_OIDC_AUDIENCE }}
     
     - name: Deploy to AWS Lambda
       if: env.AWS_ROLE_TO_ASSUME != ''
-      run: |
-        # Create deployment package
-        zip function.zip bootstrap
-        
-        # Update Lambda function code
-        aws lambda update-function-code \
-          --function-name note-app-${{ github.event.inputs.environment || 'staging' }} \
-          --zip-file fileb://function.zip \
-          --region ${{ secrets.AWS_REGION || 'us-east-1' }}
-    
+      uses: aws-actions/aws-lambda-deploy@v1
+      with:
+        function-name: pasteit
+        zip-file: function.zip
+        region: ${{ secrets.AWS_REGION }}
+        architecture: arm64
+        handler: bootstrap
+        runtime: provided.al2
+        publish: true
+        role: ${{ secrets.LAMBDA_EXECUTION_ROLE }}
+        s3-bucket: "${{ vars.BUCKET }}"
+        environment: '{"S3_BUCKET":"${{ vars.S3_BUCKET }}","S3_PREFIX":"${{ vars.S3_PREFIX }}","AWS_REGION":"${{ secrets.AWS_REGION }}"}'
+
     - name: Create deployment artifact
       if: startsWith(github.ref, 'refs/tags/')
       run: |
