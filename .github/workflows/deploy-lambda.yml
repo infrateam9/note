@@ -70,7 +70,7 @@ jobs:
         publish: true
         role: ${{ secrets.LAMBDA_EXECUTION_ROLE }}
         s3-bucket: "${{ vars.BUCKET }}"
-        environment: '{"S3_BUCKET":"${{ vars.S3_BUCKET }}","S3_PREFIX":"${{ vars.S3_PREFIX }}"}'
+        environment: '{"S3_BUCKET":"${{ vars.S3_BUCKET }}","S3_PREFIX":"${{ vars.S3_PREFIX }}","URL":"${{ secrets.URL }}"}'
     
     - name: Create release artifact
       if: startsWith(github.ref, 'refs/tags/')
