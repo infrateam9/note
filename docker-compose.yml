@@ -1,0 +1,20 @@
+services:
+  note:
+    image: ghcr.io/infrateam9/note:latest
+    container_name: note
+    restart: unless-stopped
+    read_only: true
+    mem_limit: 128mb
+    cpus: 0.5
+    user: 8080:8080
+    security_opt:
+      - no-new-privileges
+    cap_drop:
+      - all
+    ports:
+      - "0.0.0.0:8080:8080"
+    volumes:
+      - note:/note
+
+volumes:
+  note:
