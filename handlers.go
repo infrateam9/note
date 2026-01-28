@@ -31,7 +31,10 @@ func HandleGet(storage Storage) http.HandlerFunc {
 		if noteID != "" {
 			log.Printf("[GET] Retrieving note: %s from %s", noteID, clientIP)
 		} else {
-			log.Printf("[GET] Creating new note from %s", clientIP)
+			// Don't log for local requests, they are not interesting.
+			if clientIP != "127.0.0.1" && clientIP != "::1" {
+				log.Printf("[GET] Creating new note from %s", clientIP)
+			}
 		}
 
 		// Read note content from storage
