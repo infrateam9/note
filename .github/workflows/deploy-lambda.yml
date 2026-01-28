@@ -49,7 +49,6 @@ jobs:
           .
     
     - name: Configure AWS credentials
-      if: secrets.AWS_ROLE_TO_ASSUME != ''
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -57,7 +56,6 @@ jobs:
         audience: ${{ secrets.AWS_OIDC_AUDIENCE }}
     
     - name: Deploy to AWS Lambda
-      if: secrets.AWS_ROLE_TO_ASSUME != ''
       uses: aws-actions/aws-lambda-deploy@v1
       with:
         function-name: pasteit
