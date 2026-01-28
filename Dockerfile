@@ -11,6 +11,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY *.go ./
+COPY favicon.ico ./
 
 # Build the application for the target architecture
 ARG TARGETARCH

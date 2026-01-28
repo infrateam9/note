@@ -284,7 +284,7 @@ func createRequestFromV2(event events.APIGatewayV2HTTPRequest) (*http.Request, e
 func createRequestFromV1(event events.APIGatewayProxyRequest) (*http.Request, error) {
 	method := event.HTTPMethod
 	path := event.Path
-	if event.QueryStringParameters != nil && len(event.QueryStringParameters) > 0 {
+	if len(event.QueryStringParameters) > 0 {
 		first := true
 		for k, v := range event.QueryStringParameters {
 			if first {
@@ -405,5 +405,3 @@ func min(a, b int) int {
 	}
 	return b
 }
-
-// #endregion
