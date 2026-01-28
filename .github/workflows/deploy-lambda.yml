@@ -45,8 +45,7 @@ jobs:
       run: |
         GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build \
           -ldflags="-X main.Version=$(git describe --tags --always) -X main.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%SZ') -X main.CommitHash=$(git rev-parse --short HEAD)" \
-          -o bootstrap \
-          .
+          -o bootstrap .
 
     - name: Create deployment artifact
       run: |
@@ -65,7 +64,7 @@ jobs:
       with:
         function-name: pasteit
         code-artifacts-dir: deployment
-        architecture: arm64
+        architectures: arm64
         runtime: provided.al2023
         handler: bootstrap
         publish: true
