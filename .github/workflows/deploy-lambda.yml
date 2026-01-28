@@ -21,7 +21,7 @@ jobs:
     environment: ${{ github.event.inputs.environment || 'staging' }}
     
     permissions:
-      contents: read
+      contents: write
       id-token: write
       packages: write
     
@@ -77,7 +77,6 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/')
       run: |
         mkdir -p releases
-        cp bootstrap releases/note-app-${{ github.ref_name }}-lambda
         zip -r releases/note-app-${{ github.ref_name }}-lambda.zip bootstrap
     
     - name: Upload release artifacts
@@ -85,5 +84,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: releases/*
+        draft: false
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
