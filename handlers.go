@@ -178,8 +178,6 @@ func isCurlRequest(r *http.Request) bool {
 
 // renderHTML renders the main HTML template with note content
 func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Request) {
-	baseURL := getBaseURL(r)
-
 	html := `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -300,7 +298,8 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
                 <div class="note-id" id="noteInfo">` + EscapeHTML(noteID) + `</div>
             </div>
             <div class="controls">
-                <button onclick="window.location.href='` + baseURL + `'">New Note</button>
+                <button onclick="window.location.href=window.location.pathname">New Note</button>
+                <button onclick="copyNoteContent()">Copy Content</button>
                 <button onclick="copyNoteLink()">Copy Link</button>
                 <button onclick="window.print()">Print</button>
             </div>
@@ -326,7 +325,6 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
             if (textarea.value !== lastSaved) {
                 statusEl.textContent = "Saving...";
                 
-                // Fetch to current location path to support subpath proxies correctly
                 fetch(appPath + window.location.search, {
                     method: "POST",
                     headers: {
@@ -401,11 +399,26 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
             }
             const link = window.location.origin + appPath + "?note=" + currentNoteId;
             
-            // Try modern clipboard API
+            // Try modern clipboard API first
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(link).then(() => {
                     statusEl.textContent = "Link copied!";
                     setTimeout(() => { statusEl.textContent = "Ready"; }, 2000);
+                });
+            }
+        }
+
+        // Copy note content to clipboard
+        function copyNoteContent() {
+            const text = textarea.value;
+            if (!text) return;
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    statusEl.textContent = "Content copied!";
+                    setTimeout(() => { statusEl.textContent = "Ready"; }, 2000);
+                }).catch(err => {
+                    console.error("Failed to copy content:", err);
                 });
             }
         }
@@ -442,6 +455,5 @@ func getBaseURL(r *http.Request) string {
 		host = fwdHost
 	}
 
-	// Include the current Path to support subpath hosting (e.g. /note/)
 	return scheme + "://" + host + r.URL.Path
 }
