@@ -18,7 +18,7 @@ A lightweight, serverless note-taking application written in Go. Create, edit, a
 ### Local Development
 
 **Requirements:**
-- Go 1.21+
+- Go 1.24+
 
 **Run:**
 ```bash
