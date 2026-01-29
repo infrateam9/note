@@ -67,7 +67,7 @@ func TestHandleGetEmpty(t *testing.T) {
 // TestHandleGetExisting tests GET request for existing note
 func TestHandleGetExisting(t *testing.T) {
 	storage := NewMockStorage()
-	storage.Write(context.Background(), "test123", "test content")
+	_ = storage.Write(context.Background(), "test123", "test content")
 
 	handler := HandleGet(storage)
 	req := httptest.NewRequest("GET", "/?note=test123", nil)
@@ -107,7 +107,9 @@ func TestHandlePostNewNote(t *testing.T) {
 	}
 
 	var resp NoteResponse
-	json.NewDecoder(rec.Body).Decode(&resp)
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	if !resp.Success {
 		t.Errorf("Expected success=true")
@@ -145,7 +147,9 @@ func TestHandlePostExisting(t *testing.T) {
 	}
 
 	var resp NoteResponse
-	json.NewDecoder(rec.Body).Decode(&resp)
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	if !resp.Success {
 		t.Errorf("Expected success=true")
@@ -178,7 +182,9 @@ func TestHandlePostInvalidID(t *testing.T) {
 	}
 
 	var resp NoteResponse
-	json.NewDecoder(rec.Body).Decode(&resp)
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	if resp.Success {
 		t.Errorf("Expected success=false for invalid ID")
@@ -188,7 +194,7 @@ func TestHandlePostInvalidID(t *testing.T) {
 // TestHandlePostDelete tests POST request with empty content (delete)
 func TestHandlePostDelete(t *testing.T) {
 	storage := NewMockStorage()
-	storage.Write(context.Background(), "test123", "original content")
+	_ = storage.Write(context.Background(), "test123", "original content")
 
 	handler := HandlePost(storage)
 

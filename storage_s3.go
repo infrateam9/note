@@ -46,7 +46,9 @@ func (ss *S3Storage) Read(ctx context.Context, noteID string) (string, error) {
 		}
 		return "", fmt.Errorf("failed to read note from S3: %w", err)
 	}
-	defer result.Body.Close()
+	defer func() {
+		_ = result.Body.Close()
+	}()
 
 	content, err := io.ReadAll(result.Body)
 	if err != nil {

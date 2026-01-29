@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,7 +14,7 @@ func TestLocalStorageRead(t *testing.T) {
 	// Write test file
 	testContent := "test content"
 	filePath := filepath.Join(tmpDir, "test123")
-	if err := ioutil.WriteFile(filePath, []byte(testContent), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(testContent), 0644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
@@ -78,7 +77,7 @@ func TestLocalStorageWrite(t *testing.T) {
 	}
 
 	// Read and verify content
-	content, _ := ioutil.ReadFile(filePath)
+	content, _ := os.ReadFile(filePath)
 	if string(content) != testContent {
 		t.Errorf("Expected %s, got %s", testContent, string(content))
 	}
@@ -94,7 +93,7 @@ func TestLocalStorageDelete(t *testing.T) {
 
 	// Create test file
 	filePath := filepath.Join(tmpDir, "test123")
-	if err := ioutil.WriteFile(filePath, []byte("content"), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte("content"), 0644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 

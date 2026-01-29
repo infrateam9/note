@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 )
 
@@ -86,7 +85,7 @@ func HandlePost(storage Storage) http.HandlerFunc {
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				log.Printf("[ERROR] Failed to parse JSON from %s: %v", clientIP, err)
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(NoteResponse{
+				_ = json.NewEncoder(w).Encode(NoteResponse{
 					Success: false,
 					Error:   "Invalid JSON format",
 				})
@@ -97,7 +96,7 @@ func HandlePost(storage Storage) http.HandlerFunc {
 			if err := r.ParseForm(); err != nil {
 				log.Printf("[ERROR] Failed to parse form data from %s: %v", clientIP, err)
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(NoteResponse{
+				_ = json.NewEncoder(w).Encode(NoteResponse{
 					Success: false,
 					Error:   "Invalid form format",
 				})
@@ -121,7 +120,7 @@ func HandlePost(storage Storage) http.HandlerFunc {
 		if !ValidateNoteID(noteID) {
 			log.Printf("[ERROR] Invalid note ID format: %s", noteID)
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(NoteResponse{
+			_ = json.NewEncoder(w).Encode(NoteResponse{
 				Success: false,
 				Error:   "Invalid note ID format",
 			})
@@ -134,7 +133,7 @@ func HandlePost(storage Storage) http.HandlerFunc {
 			if err := storage.Delete(r.Context(), noteID); err != nil {
 				log.Printf("[ERROR] Failed to delete note %s: %v", noteID, err)
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(NoteResponse{
+				_ = json.NewEncoder(w).Encode(NoteResponse{
 					Success: false,
 					Error:   "Failed to delete note",
 				})
@@ -148,7 +147,7 @@ func HandlePost(storage Storage) http.HandlerFunc {
 			if err := storage.Write(r.Context(), noteID, req.Content); err != nil {
 				log.Printf("[ERROR] Failed to write note %s: %v", noteID, err)
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(NoteResponse{
+				_ = json.NewEncoder(w).Encode(NoteResponse{
 					Success: false,
 					Error:   "Failed to save note",
 				})
@@ -160,9 +159,9 @@ func HandlePost(storage Storage) http.HandlerFunc {
 		// Return success response
 		if strings.Contains(contentType, "application/x-www-form-urlencoded") || isCurlRequest(r) {
 			w.Header().Set("Content-Type", "text/plain")
-			fmt.Fprintf(w, "OK: %s\n", noteID)
+			_, _ = fmt.Fprintf(w, "OK: %s\n", noteID)
 		} else {
-			json.NewEncoder(w).Encode(NoteResponse{
+			_ = json.NewEncoder(w).Encode(NoteResponse{
 				Success: true,
 				NoteID:  noteID,
 			})
@@ -430,31 +429,5 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
 </body>
 </html>`
 
-	fmt.Fprint(w, html)
-}
-
-// getBaseURL returns the base URL from environment or request
-func getBaseURL(r *http.Request) string {
-	// Check URL environment variable first
-	if url := os.Getenv("URL"); url != "" {
-		// Ensure it ends with /
-		if !strings.HasSuffix(url, "/") {
-			url += "/"
-		}
-		return url
-	}
-
-	// Auto-detect from request
-	scheme := "http"
-	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
-
-	host := r.Host
-	// Check X-Forwarded-Host header (for reverse proxies)
-	if fwdHost := r.Header.Get("X-Forwarded-Host"); fwdHost != "" {
-		host = fwdHost
-	}
-
-	return scheme + "://" + host + r.URL.Path
+	_, _ = fmt.Fprint(w, html)
 }

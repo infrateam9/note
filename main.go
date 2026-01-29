@@ -99,11 +99,12 @@ func initHTTPServer() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/favicon.ico", serveFavicon)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
 			HandleGet(globalStorage)(w, r)
-		} else if r.Method == http.MethodPost {
+		case http.MethodPost:
 			HandlePost(globalStorage)(w, r)
-		} else {
+		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})

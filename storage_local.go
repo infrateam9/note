@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -36,7 +35,7 @@ func NewLocalStorage(dir string) (*LocalStorage, error) {
 // Read retrieves note content from disk
 func (ls *LocalStorage) Read(ctx context.Context, noteID string) (string, error) {
 	filePath := filepath.Join(ls.dir, noteID)
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			log.Printf("[INFO] Note %s does not exist at %s", noteID, filePath)
@@ -52,7 +51,7 @@ func (ls *LocalStorage) Read(ctx context.Context, noteID string) (string, error)
 // Write saves note content to disk
 func (ls *LocalStorage) Write(ctx context.Context, noteID string, content string) error {
 	filePath := filepath.Join(ls.dir, noteID)
-	if err := ioutil.WriteFile(filePath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 		log.Printf("[ERROR] Failed to write note %s to %s: %v (Check directory permissions: %s, Disk space, File permissions)", noteID, filePath, err, ls.dir)
 		return fmt.Errorf("failed to write note: %w", err)
 	}
