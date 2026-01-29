@@ -13,10 +13,14 @@ RUN go mod download
 COPY *.go ./
 COPY favicon.ico ./
 
+# Build arguments for versioning
+ARG VERSION=docker-dev
+ARG COMMIT_HASH=unknown
+
 # Build the application for the target architecture
 ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
-    -ldflags="-X main.Version=docker -X main.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%SZ') -X main.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')" \
+    -ldflags="-X main.Version=${VERSION} -X main.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%SZ') -X main.CommitHash=${COMMIT_HASH}" \
     -o note-app .
 
 # Runtime stage
@@ -43,7 +47,7 @@ EXPOSE 8080
 ENV PORT=8080
 ENV NOTE_DIR=/note
 
-# Health check (uses PORT env var, defaults to 8080)
+# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://localhost:${PORT:-8080}/ || exit 1
 
