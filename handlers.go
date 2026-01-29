@@ -105,7 +105,7 @@ func HandlePost(storage Storage) http.HandlerFunc {
 			}
 			req.Content = r.FormValue("text")
 			req.NoteID = r.FormValue("noteId")
-			log.Printf("[INFO] Parsed form data: noteId=%s, content_length=%d", req.NoteID, len(req.Content))
+			log.Printf("[INFO] Parsed form data from %s: noteId=%s, content_length=%d", clientIP, req.NoteID, len(req.Content))
 		}
 
 		// Auto-generate ID if not provided
@@ -130,9 +130,9 @@ func HandlePost(storage Storage) http.HandlerFunc {
 
 		// If content is empty, delete the note
 		if strings.TrimSpace(req.Content) == "" {
-			log.Printf("[DELETE] Attempting to delete note: %s", noteID)
+			log.Printf("[DELETE] Attempting to delete note: %s (Client: %s)", noteID, clientIP)
 			if err := storage.Delete(r.Context(), noteID); err != nil {
-				log.Printf("[ERROR] Failed to delete note %s: %v (Path may not exist)", noteID, err)
+				log.Printf("[ERROR] Failed to delete note %s: %v", noteID, err)
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(NoteResponse{
 					Success: false,
@@ -144,9 +144,9 @@ func HandlePost(storage Storage) http.HandlerFunc {
 		} else {
 			// Save the note
 			contentSize := len(req.Content)
-			log.Printf("[SAVE] Attempting to save note: %s (size: %d bytes)", noteID, contentSize)
+			log.Printf("[SAVE] Attempting to save note: %s (size: %d bytes, Client: %s)", noteID, contentSize, clientIP)
 			if err := storage.Write(r.Context(), noteID, req.Content); err != nil {
-				log.Printf("[ERROR] Failed to write note %s: %v (Check directory permissions and disk space)", noteID, err)
+				log.Printf("[ERROR] Failed to write note %s: %v", noteID, err)
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(NoteResponse{
 					Success: false,
@@ -158,11 +158,7 @@ func HandlePost(storage Storage) http.HandlerFunc {
 		}
 
 		// Return success response
-		// For form-encoded requests, return simple text response
-		if strings.Contains(contentType, "application/x-www-form-urlencoded") {
-			w.Header().Set("Content-Type", "text/plain")
-			fmt.Fprintf(w, "OK: %s\n", noteID)
-		} else if isCurlRequest(r) {
+		if strings.Contains(contentType, "application/x-www-form-urlencoded") || isCurlRequest(r) {
 			w.Header().Set("Content-Type", "text/plain")
 			fmt.Fprintf(w, "OK: %s\n", noteID)
 		} else {
@@ -182,6 +178,8 @@ func isCurlRequest(r *http.Request) bool {
 
 // renderHTML renders the main HTML template with note content
 func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Request) {
+	baseURL := getBaseURL(r)
+
 	html := `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -302,7 +300,7 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
                 <div class="note-id" id="noteInfo">` + EscapeHTML(noteID) + `</div>
             </div>
             <div class="controls">
-                <button onclick="location.href='/'">New Note</button>
+                <button onclick="window.location.href='` + baseURL + `'">New Note</button>
                 <button onclick="copyNoteLink()">Copy Link</button>
                 <button onclick="window.print()">Print</button>
             </div>
@@ -314,22 +312,22 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
     </div>
     
     <div id="printable"></div>
-    <input type="hidden" id="baseUrl" value="` + getBaseURL(r) + `">
     
     <script>
-        let baseUrl = document.getElementById('baseUrl').value;
-        let lastSaved = "` + EscapeHTML(content) + `";
+        const appPath = window.location.pathname;
+        let lastSaved = ` + "`" + EscapeHTML(content) + "`" + `;
         let currentNoteId = "` + EscapeHTML(noteID) + `";
-        let textarea = document.getElementById("content");
-        let statusEl = document.getElementById("status");
-        let printableEl = document.getElementById("printable");
+        const textarea = document.getElementById("content");
+        const statusEl = document.getElementById("status");
+        const printableEl = document.getElementById("printable");
         
         // Auto-save functionality
         function autoSave() {
             if (textarea.value !== lastSaved) {
                 statusEl.textContent = "Saving...";
                 
-                fetch("/", {
+                // Fetch to current location path to support subpath proxies correctly
+                fetch(appPath + window.location.search, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
@@ -351,8 +349,9 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
                         currentNoteId = data.noteId;
                         
                         // Update URL if new note was created
-                        if (location.search !== "?note=" + data.noteId && currentNoteId) {
-                            window.history.replaceState({}, "", "/?note=" + data.noteId);
+                        const newSearch = "?note=" + data.noteId;
+                        if (window.location.search !== newSearch && currentNoteId) {
+                            window.history.replaceState({}, "", appPath + newSearch);
                             document.getElementById("noteInfo").textContent = data.noteId;
                         }
                         
@@ -398,43 +397,17 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
         // Copy note link to clipboard
         function copyNoteLink() {
             if (!currentNoteId) {
-                alert("Please save the note first");
                 return;
             }
-            const link = baseUrl + "?note=" + currentNoteId;
+            const link = window.location.origin + appPath + "?note=" + currentNoteId;
             
-            // Try modern clipboard API first
+            // Try modern clipboard API
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(link).then(() => {
                     statusEl.textContent = "Link copied!";
                     setTimeout(() => { statusEl.textContent = "Ready"; }, 2000);
-                }).catch(err => {
-                    // Fallback if clipboard API fails
-                    copyToClipboardFallback(link);
                 });
-            } else {
-                // Fallback for older browsers or non-secure contexts
-                copyToClipboardFallback(link);
             }
-        }
-        
-        // Fallback method to copy text
-        function copyToClipboardFallback(text) {
-            const textarea = document.createElement("textarea");
-            textarea.value = text;
-            textarea.style.position = "fixed";
-            textarea.style.opacity = "0";
-            document.body.appendChild(textarea);
-            textarea.select();
-            try {
-                document.execCommand("copy");
-                statusEl.textContent = "Link copied!";
-                setTimeout(() => { statusEl.textContent = "Ready"; }, 2000);
-            } catch (err) {
-                console.error("Failed to copy:", err);
-                alert("Failed to copy link. Link: " + text);
-            }
-            document.body.removeChild(textarea);
         }
         
         // Focus textarea
@@ -451,7 +424,7 @@ func getBaseURL(r *http.Request) string {
 	// Check URL environment variable first
 	if url := os.Getenv("URL"); url != "" {
 		// Ensure it ends with /
-		if url[len(url)-1] != '/' {
+		if !strings.HasSuffix(url, "/") {
 			url += "/"
 		}
 		return url
@@ -459,12 +432,8 @@ func getBaseURL(r *http.Request) string {
 
 	// Auto-detect from request
 	scheme := "http"
-	if r.TLS != nil {
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
 		scheme = "https"
-	}
-	// Check X-Forwarded-Proto header (for reverse proxies)
-	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
-		scheme = proto
 	}
 
 	host := r.Host
@@ -473,5 +442,6 @@ func getBaseURL(r *http.Request) string {
 		host = fwdHost
 	}
 
-	return scheme + "://" + host + "/"
+	// Include the current Path to support subpath hosting (e.g. /note/)
+	return scheme + "://" + host + r.URL.Path
 }
