@@ -20,7 +20,7 @@ func ValidateNoteID(noteID string) bool {
 
 // GenerateNoteID creates a random 5-character alphanumeric note ID
 func GenerateNoteID() string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	const length = 5
 	b := make([]byte, length)
 	for i := range b {

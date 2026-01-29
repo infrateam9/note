@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -89,13 +91,27 @@ func HandlePost(storage Storage) http.HandlerFunc {
 		// Set response content type
 		w.Header().Set("Content-Type", "application/json")
 
-		// Parse request - handle both JSON, form-encoded, and raw body data
+		// Read the entire body first to avoid ParseForm consuming it early
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Printf("[ERROR] Failed to read request body: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(NoteResponse{
+				Success: false,
+				Error:   "Read error",
+			})
+			return
+		}
+
+		// Reset body reader for potential future use (though not needed here as we use bodyBytes)
+		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
 		var req NoteRequest
 		contentType := r.Header.Get("Content-Type")
 
 		if strings.Contains(contentType, "application/json") {
 			// Parse JSON request
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			if err := json.Unmarshal(bodyBytes, &req); err != nil {
 				log.Printf("[ERROR] Failed to parse JSON from %s: %v", clientIP, err)
 				w.WriteHeader(http.StatusBadRequest)
 				_ = json.NewEncoder(w).Encode(NoteResponse{
@@ -104,23 +120,22 @@ func HandlePost(storage Storage) http.HandlerFunc {
 				})
 				return
 			}
-		} else {
-			// Try parsing as form data first
-			_ = r.ParseForm()
-			req.Content = r.FormValue("text")
-			req.NoteID = r.FormValue("noteId")
-
-			// If Content is still empty, fallback to reading the raw request body
-			// This enables: cat file.txt | curl --data-binary @- http://...
-			if req.Content == "" {
-				bodyBytes, err := io.ReadAll(r.Body)
-				if err == nil && len(bodyBytes) > 0 {
-					req.Content = string(bodyBytes)
-					log.Printf("[INFO] Received %d bytes from raw request body from %s", len(bodyBytes), clientIP)
-				}
-			} else {
+		} else if strings.Contains(contentType, "application/x-www-form-urlencoded") {
+			// Try to parse as form, fallback to raw if keys are missing
+			values, err := url.ParseQuery(string(bodyBytes))
+			if err == nil && (values.Has("text") || values.Has("noteId")) {
+				req.Content = values.Get("text")
+				req.NoteID = values.Get("noteId")
 				log.Printf("[INFO] Parsed form data from %s: noteId=%s, content_length=%d", clientIP, req.NoteID, len(req.Content))
+			} else {
+				req.Content = string(bodyBytes)
+				log.Printf("[INFO] Received %d bytes from raw form body from %s", len(bodyBytes), clientIP)
 			}
+		} else {
+			// Plain text or piped binary data
+			req.Content = string(bodyBytes)
+			req.NoteID = r.URL.Query().Get("noteId")
+			log.Printf("[INFO] Received %d bytes from raw request body from %s", len(bodyBytes), clientIP)
 		}
 
 		// Auto-generate ID if not provided
@@ -453,28 +468,20 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
 	_, _ = fmt.Fprint(w, html)
 }
 
-// getBaseURL returns the base URL from environment or request
 func getBaseURL(r *http.Request) string {
-	// Check URL environment variable first
-	if url := os.Getenv("URL"); url != "" {
-		// Ensure it ends with /
-		if !strings.HasSuffix(url, "/") {
-			url += "/"
+	if urlEnv := os.Getenv("URL"); urlEnv != "" {
+		if !strings.HasSuffix(urlEnv, "/") {
+			urlEnv += "/"
 		}
-		return url
+		return urlEnv
 	}
-
-	// Auto-detect from request
 	scheme := "http"
 	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
 		scheme = "https"
 	}
-
 	host := r.Host
-	// Check X-Forwarded-Host header (for reverse proxies)
 	if fwdHost := r.Header.Get("X-Forwarded-Host"); fwdHost != "" {
 		host = fwdHost
 	}
-
 	return scheme + "://" + host + r.URL.Path
 }
