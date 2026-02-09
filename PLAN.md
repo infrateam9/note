@@ -64,28 +64,31 @@ Mobile actions: icon-only buttons in a row below the title, or a dropdown menu.
 
 ## Specific Changes (all in `renderHTML` in `handlers.go`)
 
-### Phase 1 — Core Visual Refresh
-- [ ] Update color scheme to white + blue palette above
-- [ ] Add `box-shadow` to header (subtle elevation)
-- [ ] Rounded corners on textarea with light border
-- [ ] Better typography: slightly larger title, inter-font stack
-- [ ] Button redesign: pill-shaped, subtle shadow, hover transition
-- [ ] Status bar: dot indicator (green=saved, blue=saving, gray=ready)
-- [ ] Smooth CSS transitions on interactive elements
+### Phase 1 — Core Visual Refresh ✅
+- [x] Update color scheme to white + blue palette above
+- [x] Add `box-shadow` to header (subtle elevation)
+- [x] Rounded corners on textarea with light border
+- [x] Better typography: slightly larger title, inter-font stack
+- [x] Button redesign: outlined with icons, hover transition
+- [x] Status bar: dot indicator (green=saved, blue=saving, gray=ready, red=error)
+- [x] Smooth CSS transitions on interactive elements
+- [x] Toast notifications for copy actions
 
-### Phase 2 — Responsive / Mobile
-- [ ] Add `@media (max-width: 768px)` breakpoints
-- [ ] Stack header vertically on mobile OR use icon-only buttons
-- [ ] Reduce padding on mobile for more writing space
-- [ ] Ensure textarea fills available height (`flex: 1`)
-- [ ] Test on 375px (iPhone SE) and 390px (iPhone 14) widths
+### Phase 2 — Responsive / Mobile ✅
+- [x] Add `@media (max-width: 640px)` breakpoints
+- [x] Icon-only buttons on mobile (labels hidden)
+- [x] Reduce padding on mobile for more writing space
+- [x] Hide note ID badge on mobile to save space
+- [x] Ensure textarea fills available height (`flex: 1`, `100dvh`)
+- [x] Tested on 375px (iPhone SE) and 390px (iPhone 14) widths
 
-### Phase 3 — Polish
-- [ ] Add character/word count in status bar
-- [ ] Focus ring on textarea (blue glow)
-- [ ] Animate status text transitions (fade)
-- [ ] Print styles cleanup
-- [ ] Add subtle favicon-matching blue accent to header
+### Phase 3 — Polish ✅
+- [x] Add character/word count in status bar (right side)
+- [x] Focus ring on textarea (blue glow with `box-shadow`)
+- [x] Animate status text transitions
+- [x] Print styles cleanup (0.5in padding, proper font size)
+- [x] Blue pencil icon accent in header
+- [x] CSS custom properties for consistent theming
 
 ## Non-Goals (keep it simple)
 
