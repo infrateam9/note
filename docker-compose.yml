@@ -1,6 +1,9 @@
 services:
   note:
-    image: ghcr.io/johnwmail/note:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: note:latest
     container_name: note
     restart: unless-stopped
     read_only: true
