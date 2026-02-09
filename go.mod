@@ -1,4 +1,4 @@
-module github.com/infrateam9/note
+module note
 
 go 1.24
 

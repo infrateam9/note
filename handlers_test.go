@@ -219,3 +219,69 @@ func TestHandlePostDelete(t *testing.T) {
 		t.Errorf("Expected note to be deleted")
 	}
 }
+
+// TestExtractPathNoteID tests extracting note ID from path
+func TestExtractPathNoteID(t *testing.T) {
+	req := httptest.NewRequest("GET", "/noteid/ABC123", nil)
+	id := extractPathNoteID(req)
+	if id != "ABC123" {
+		t.Fatalf("expected ABC123, got %s", id)
+	}
+
+	req = httptest.NewRequest("GET", "/app/noteid/XYZ/", nil)
+	id = extractPathNoteID(req)
+	if id != "XYZ" {
+		t.Fatalf("expected XYZ, got %s", id)
+	}
+}
+
+// TestExtractNoteIDPrefersQuery tests that query param takes precedence over path
+func TestExtractNoteIDPrefersQuery(t *testing.T) {
+	req := httptest.NewRequest("GET", "/noteid/SHOULDNOT?note=Q123", nil)
+	id := extractNoteID(req)
+	if id != "Q123" {
+		t.Fatalf("expected Q123, got %s", id)
+	}
+}
+
+// TestParseNoteRequestJSONPath tests parseNoteRequest picks up path-based note ID when JSON omits it
+func TestParseNoteRequestJSONPath(t *testing.T) {
+	body := `{"content":"hello"}`
+	req := httptest.NewRequest("POST", "/noteid/PATHID", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	noteReq, _, err := parseNoteRequest(req, []byte(body), "127.0.0.1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if noteReq.NoteID != "PATHID" {
+		t.Fatalf("expected PATHID, got %s", noteReq.NoteID)
+	}
+	if noteReq.Content != "hello" {
+		t.Fatalf("expected content 'hello', got %s", noteReq.Content)
+	}
+}
+
+// TestParseNoteRequestFormAndRaw tests form parsing and raw body path fallback
+func TestParseNoteRequestFormAndRaw(t *testing.T) {
+	form := "text=hi&noteId=FORMID"
+	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(form))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	noteReq, _, err := parseNoteRequest(req, []byte(form), "127.0.0.1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if noteReq.NoteID != "FORMID" || noteReq.Content != "hi" {
+		t.Fatalf("unexpected form parse result: %#v", noteReq)
+	}
+
+	raw := "raw body"
+	req = httptest.NewRequest("POST", "/noteid/RAWID", bytes.NewBufferString(raw))
+	req.Header.Set("Content-Type", "text/plain")
+	noteReq, _, err = parseNoteRequest(req, []byte(raw), "127.0.0.1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if noteReq.NoteID != "RAWID" || noteReq.Content != "raw body" {
+		t.Fatalf("unexpected raw parse result: %#v", noteReq)
+	}
+}

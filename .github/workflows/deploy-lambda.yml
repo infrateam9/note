@@ -19,7 +19,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'staging' }}
-    
+
+    env:
+      AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+      AWS_OIDC_AUDIENCE: ${{ secrets.AWS_OIDC_AUDIENCE }}
+        
     permissions:
       contents: write
       id-token: write
@@ -55,6 +59,8 @@ jobs:
     
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
+      # Logic: check that BOTH environment variables are not empty
+      if: env.AWS_ROLE_TO_ASSUME != '' && env.AWS_OIDC_AUDIENCE != ''
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         aws-region: ${{ secrets.AWS_REGION }}
@@ -62,6 +68,8 @@ jobs:
     
     - name: Deploy to AWS Lambda
       uses: aws-actions/aws-lambda-deploy@v1
+      # Logic: check that BOTH environment variables are not empty
+      if: env.AWS_ROLE_TO_ASSUME != '' && env.AWS_OIDC_AUDIENCE != ''
       with:
         function-name: pasteit
         code-artifacts-dir: deployment

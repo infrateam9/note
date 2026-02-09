@@ -28,7 +28,7 @@ type NoteResponse struct {
 // HandleGet handles GET requests to retrieve a note
 func HandleGet(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		noteID := r.URL.Query().Get("note")
+		noteID := extractNoteID(r)
 		clientIP := ClientIP(r)
 
 		if noteID != "" {
@@ -70,75 +70,40 @@ func HandleGet(storage Storage) http.HandlerFunc {
 	}
 }
 
-// HandlePost handles POST requests to save a note
+// HandlePost handles POST requests to save a note (refactored)
 func HandlePost(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		clientIP := ClientIP(r)
 		log.Printf("[POST] Request from %s", clientIP)
 
-		// Set CORS headers to allow requests from any origin
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		// Handle preflight requests
+		// CORS and preflight handling
+		setCORSHeaders(w)
 		if r.Method == http.MethodOptions {
 			log.Printf("[POST] Preflight OPTIONS request from %s", clientIP)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
-		// Set response content type
 		w.Header().Set("Content-Type", "application/json")
 
-		// Read the entire body first to avoid ParseForm consuming it early
+		// Read body
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			log.Printf("[ERROR] Failed to read request body: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(NoteResponse{
-				Success: false,
-				Error:   "Read error",
-			})
+			writeJSONError(w, http.StatusInternalServerError, "Read error")
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+		// Parse request
+		req, contentType, err := parseNoteRequest(r, bodyBytes, clientIP)
+		if err != nil {
+			log.Printf("[ERROR] Failed to parse request from %s: %v", clientIP, err)
+			writeJSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		// Reset body reader for potential future use (though not needed here as we use bodyBytes)
-		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-
-		var req NoteRequest
-		contentType := r.Header.Get("Content-Type")
-
-		if strings.Contains(contentType, "application/json") {
-			// Parse JSON request
-			if err := json.Unmarshal(bodyBytes, &req); err != nil {
-				log.Printf("[ERROR] Failed to parse JSON from %s: %v", clientIP, err)
-				w.WriteHeader(http.StatusBadRequest)
-				_ = json.NewEncoder(w).Encode(NoteResponse{
-					Success: false,
-					Error:   "Invalid JSON format",
-				})
-				return
-			}
-		} else if strings.Contains(contentType, "application/x-www-form-urlencoded") {
-			// Try to parse as form, fallback to raw if keys are missing
-			values, err := url.ParseQuery(string(bodyBytes))
-			if err == nil && (values.Has("text") || values.Has("noteId")) {
-				req.Content = values.Get("text")
-				req.NoteID = values.Get("noteId")
-				log.Printf("[INFO] Parsed form data from %s: noteId=%s, content_length=%d", clientIP, req.NoteID, len(req.Content))
-			} else {
-				req.Content = string(bodyBytes)
-				log.Printf("[INFO] Received %d bytes from raw form body from %s", len(bodyBytes), clientIP)
-			}
-		} else {
-			// Plain text or piped binary data
-			req.Content = string(bodyBytes)
-			req.NoteID = r.URL.Query().Get("noteId")
-			log.Printf("[INFO] Received %d bytes from raw request body from %s", len(bodyBytes), clientIP)
-		}
-
-		// Auto-generate ID if not provided
+		// Ensure note ID
 		noteID := strings.TrimSpace(req.NoteID)
 		if noteID == "" {
 			noteID = GenerateNoteID()
@@ -147,41 +112,27 @@ func HandlePost(storage Storage) http.HandlerFunc {
 			log.Printf("[INFO] Using provided note ID: %s", noteID)
 		}
 
-		// Validate note ID
 		if !ValidateNoteID(noteID) {
 			log.Printf("[ERROR] Invalid note ID format: %s", noteID)
-			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(NoteResponse{
-				Success: false,
-				Error:   "Invalid note ID format",
-			})
+			writeJSONError(w, http.StatusBadRequest, "Invalid note ID format")
 			return
 		}
 
-		// If content is empty, delete the note
+		// Save or delete
 		if strings.TrimSpace(req.Content) == "" {
 			log.Printf("[DELETE] Attempting to delete note: %s (Client: %s)", noteID, clientIP)
 			if err := storage.Delete(r.Context(), noteID); err != nil {
 				log.Printf("[ERROR] Failed to delete note %s: %v", noteID, err)
-				w.WriteHeader(http.StatusInternalServerError)
-				_ = json.NewEncoder(w).Encode(NoteResponse{
-					Success: false,
-					Error:   "Failed to delete note",
-				})
+				writeJSONError(w, http.StatusInternalServerError, "Failed to delete note")
 				return
 			}
 			log.Printf("[SUCCESS] Note %s deleted successfully", noteID)
 		} else {
-			// Save the note
 			contentSize := len(req.Content)
 			log.Printf("[SAVE] Attempting to save note: %s (size: %d bytes, Client: %s)", noteID, contentSize, clientIP)
 			if err := storage.Write(r.Context(), noteID, req.Content); err != nil {
 				log.Printf("[ERROR] Failed to write note %s: %v", noteID, err)
-				w.WriteHeader(http.StatusInternalServerError)
-				_ = json.NewEncoder(w).Encode(NoteResponse{
-					Success: false,
-					Error:   "Failed to save note",
-				})
+				writeJSONError(w, http.StatusInternalServerError, "Failed to save note")
 				return
 			}
 			log.Printf("[SUCCESS] Note %s saved successfully (size: %d bytes)", noteID, contentSize)
@@ -189,20 +140,73 @@ func HandlePost(storage Storage) http.HandlerFunc {
 
 		// Return success response
 		if isCurlRequest(r) {
-			// For terminal users, return the full URL for easy piping
 			w.Header().Set("Content-Type", "text/plain")
-			fullURL := getBaseURL(r) + "?note=" + noteID
+			fullURL := getBaseURL(r) + "noteid/" + noteID
 			_, _ = fmt.Fprintln(w, fullURL)
-		} else if strings.Contains(contentType, "application/x-www-form-urlencoded") {
+			return
+		}
+
+		if strings.Contains(contentType, "application/x-www-form-urlencoded") {
 			w.Header().Set("Content-Type", "text/plain")
 			_, _ = fmt.Fprintf(w, "OK: %s\n", noteID)
-		} else {
-			_ = json.NewEncoder(w).Encode(NoteResponse{
-				Success: true,
-				NoteID:  noteID,
-			})
+			return
 		}
+
+		_ = json.NewEncoder(w).Encode(NoteResponse{Success: true, NoteID: noteID})
 	}
+}
+
+// setCORSHeaders sets common CORS response headers
+func setCORSHeaders(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+}
+
+// writeJSONError writes a JSON error response
+func writeJSONError(w http.ResponseWriter, status int, message string) {
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(NoteResponse{Success: false, Error: message})
+}
+
+// parseNoteRequest parses the request body into NoteRequest and returns the content type
+func parseNoteRequest(r *http.Request, bodyBytes []byte, clientIP string) (NoteRequest, string, error) {
+	var req NoteRequest
+	contentType := r.Header.Get("Content-Type")
+
+	if strings.Contains(contentType, "application/json") {
+		if err := json.Unmarshal(bodyBytes, &req); err != nil {
+			return req, contentType, fmt.Errorf("invalid JSON format")
+		}
+		// If JSON didn't include a note ID, try to pick it from the path
+		if req.NoteID == "" {
+			req.NoteID = extractPathNoteID(r)
+		}
+		return req, contentType, nil
+	}
+
+	if strings.Contains(contentType, "application/x-www-form-urlencoded") {
+		values, err := url.ParseQuery(string(bodyBytes))
+		if err == nil && (values.Has("text") || values.Has("noteId")) {
+			req.Content = values.Get("text")
+			req.NoteID = values.Get("noteId")
+			log.Printf("[INFO] Parsed form data from %s: noteId=%s, content_length=%d", clientIP, req.NoteID, len(req.Content))
+			return req, contentType, nil
+		}
+		req.Content = string(bodyBytes)
+		log.Printf("[INFO] Received %d bytes from raw form body from %s", len(bodyBytes), clientIP)
+		return req, contentType, nil
+	}
+
+	// Plain text or piped binary data
+	req.Content = string(bodyBytes)
+	// Prefer noteId from query, but fall back to path-based ID (e.g., /noteid/ABCDE)
+	req.NoteID = r.URL.Query().Get("noteId")
+	if req.NoteID == "" {
+		req.NoteID = extractPathNoteID(r)
+	}
+	log.Printf("[INFO] Received %d bytes from raw request body from %s", len(bodyBytes), clientIP)
+	return req, contentType, nil
 }
 
 // isCurlRequest checks if the request is from curl
@@ -334,7 +338,7 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
                 <div class="note-id" id="noteInfo">` + EscapeHTML(noteID) + `</div>
             </div>
             <div class="controls">
-                <button onclick="window.location.href=window.location.pathname">New Note</button>
+                <button onclick="window.location.href=window.location.pathname.replace(/\/noteid\/.*$/, '')">New Note</button>
                 <button onclick="copyNoteContent()">Copy Content</button>
                 <button onclick="copyNoteLink()">Copy Link</button>
                 <button onclick="window.print()">Print</button>
@@ -349,7 +353,9 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
     <div id="printable"></div>
     
     <script>
-        const appPath = window.location.pathname;
+        // base path excludes any trailing /noteid/{id} so it works behind reverse proxy subpaths
+        const basePath = window.location.pathname.replace(/\/noteid\/.*$/, '');
+        const appBase = basePath.endsWith('/') ? basePath : basePath + '/';
         let lastSaved = ` + "`" + EscapeHTML(content) + "`" + `;
         let currentNoteId = "` + EscapeHTML(noteID) + `";
         const textarea = document.getElementById("content");
@@ -361,7 +367,9 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
             if (textarea.value !== lastSaved) {
                 statusEl.textContent = "Saving...";
                 
-                fetch(appPath + window.location.search, {
+                // POST to path-based endpoint when a note id is present
+                const saveUrl = currentNoteId ? appBase + 'noteid/' + currentNoteId : appBase;
+                fetch(saveUrl, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
@@ -382,10 +390,10 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
                         lastSaved = textarea.value;
                         currentNoteId = data.noteId;
                         
-                        // Update URL if new note was created
-                        const newSearch = "?note=" + data.noteId;
-                        if (window.location.search !== newSearch && currentNoteId) {
-                            window.history.replaceState({}, "", appPath + newSearch);
+                        // Update URL if new note was created (use /noteid/{id})
+                        const newPath = appBase + 'noteid/' + data.noteId;
+                        if (window.location.pathname !== newPath && currentNoteId) {
+                            window.history.replaceState({}, "", newPath);
                             document.getElementById("noteInfo").textContent = data.noteId;
                         }
                         
@@ -433,7 +441,7 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
             if (!currentNoteId) {
                 return;
             }
-            const link = window.location.origin + appPath + "?note=" + currentNoteId;
+            const link = window.location.origin + appBase + 'noteid/' + currentNoteId;
             
             // Try modern clipboard API first
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -468,6 +476,25 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
 	_, _ = fmt.Fprint(w, html)
 }
 
+// extractPathNoteID extracts a note ID from a path of the form /.../noteid/{id}
+func extractPathNoteID(r *http.Request) string {
+	path := r.URL.Path
+	if idx := strings.Index(path, "/noteid/"); idx != -1 {
+		id := path[idx+len("/noteid/"):]
+		// strip any trailing slash
+		id = strings.Trim(id, "/")
+		return id
+	}
+	return ""
+}
+
+// extractNoteID returns the note id either from query (?note=) or from /noteid/{id}
+func extractNoteID(r *http.Request) string {
+	if id := r.URL.Query().Get("note"); id != "" {
+		return id
+	}
+	return extractPathNoteID(r)
+}
 func getBaseURL(r *http.Request) string {
 	if urlEnv := os.Getenv("URL"); urlEnv != "" {
 		if !strings.HasSuffix(urlEnv, "/") {
@@ -483,5 +510,13 @@ func getBaseURL(r *http.Request) string {
 	if fwdHost := r.Header.Get("X-Forwarded-Host"); fwdHost != "" {
 		host = fwdHost
 	}
-	return scheme + "://" + host + r.URL.Path
+	// Remove any trailing /noteid/{id} from the path to get the app root (supports reverse proxy subpaths)
+	path := r.URL.Path
+	if idx := strings.Index(path, "/noteid/"); idx != -1 {
+		path = path[:idx]
+	}
+	if !strings.HasSuffix(path, "/") {
+		path += "/"
+	}
+	return scheme + "://" + host + path
 }

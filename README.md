@@ -95,12 +95,17 @@ Runtime detection is automatic:
 
 ## API
 
-### GET /?note={noteId}
+### GET /noteid/{noteId} (or legacy `/?note={noteId}`)
 
 Retrieve and display a note.
 
 **Parameters:**
-- `note` (optional): Note ID (alphanumeric, 5-20 chars)
+- `noteId` (path) or `note` (query): Note ID (alphanumeric, 5-20 chars)
+
+**Notes:**
+- The preferred URL format is now `/noteid/{noteId}` for shell-friendly links (e.g., `http://example.com/noteid/ABCDE`).
+- Backwards compatibility: `/?note={noteId}` still works.
+- The server also supports being mounted under a reverse-proxy subpath (e.g., `https://example.com/app/`); links and copied URLs will preserve the subpath.
 
 **Response:**
 - HTML page with note content in a textarea
@@ -108,6 +113,10 @@ Retrieve and display a note.
 
 **Example:**
 ```bash
+# Preferred path-style URL (no ? character)
+curl http://localhost:8080/noteid/abc12
+
+# Legacy query-style URL (still supported)
 curl http://localhost:8080/?note=abc12
 ```
 
