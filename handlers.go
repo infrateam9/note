@@ -644,7 +644,7 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
         }
 
         function newNote() {
-            window.location.href = window.location.pathname.replace(/\/noteid\/.*$/, '') || '/';
+            window.location.href = appBase;
         }
 
         // Auto-save
@@ -709,26 +709,44 @@ func renderHTML(w http.ResponseWriter, noteID string, content string, r *http.Re
         printableEl.textContent = textarea.value;
         updateCharCount();
 
+        function copyToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                return navigator.clipboard.writeText(text).then(function() {
+                    return true;
+                }).catch(function() {
+                    return fallbackCopy(text);
+                });
+            }
+            return Promise.resolve(fallbackCopy(text));
+        }
+
+        function fallbackCopy(text) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            var ok = false;
+            try { ok = document.execCommand('copy'); } catch(e) {}
+            document.body.removeChild(ta);
+            return ok;
+        }
+
         function copyNoteLink() {
             if (!currentNoteId) { showToast('Save a note first'); return; }
             var link = window.location.origin + appBase + 'noteid/' + currentNoteId;
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(link).then(function() {
-                    showToast('Link copied!');
-                });
-            }
+            copyToClipboard(link).then(function(ok) {
+                showToast(ok ? 'Link copied!' : 'Could not copy link');
+            });
         }
 
         function copyNoteContent() {
             var text = textarea.value;
             if (!text) { showToast('Nothing to copy'); return; }
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(function() {
-                    showToast('Content copied!');
-                }).catch(function(err) {
-                    console.error('Failed to copy content:', err);
-                });
-            }
+            copyToClipboard(text).then(function(ok) {
+                showToast(ok ? 'Content copied!' : 'Could not copy content');
+            });
         }
 
         textarea.focus();
